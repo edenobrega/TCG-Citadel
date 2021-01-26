@@ -1,0 +1,230 @@
+﻿@page "/MTG/ViewCollection/{Set_Code}"
+@using TCG_Citadel.Data.CollectionManager
+@using System.Security.Claims
+@inject MtgCollectionManager _db
+@inject AuthenticationStateProvider auth
+@attribute [Authorize]
+
+
+@if (cards is null)
+{
+    <h3>Loading . . .</h3>
+}
+else
+{
+<div class="row">
+    <div class="col-md-3">
+        <label for="filterInput">Filter Table : </label>
+        <input @onkeypress="KeyboardInputHandler" @bind="filterInput" @bind:event="oninput" name="filterInput" />
+    </div>
+    <div class="col-md-3">
+        <h3>Filters by collector number</h3>
+    </div>
+
+    <div class="col-md-3">
+        <button class="btn btn-primary" @onclick="UpdateCards">Update</button>
+    </div>
+</div>
+
+    <div class="row">
+        <div class="col-xs-12">
+            <table class="table table-bordered table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Collector Number</th>
+                        <th scope="col">Reprint</th>
+                        <th scope="col">Has Foil</th>
+                        <th scope="col">Has Non Foil</th>
+                        <th scope="col">Frame Effect</th>
+                        <th scope="col">Price Non Foil</th>
+                        <th scope="col">Price Foil</th>
+                        <th scope="col">Non Foil Collected</th>
+                        <th scope="col">Foil Collected</th>
+                        <th scope="col">Image</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var card in cards)
+                    {
+                        <tr style="visibility: @card.Css.IsVisible;display:@card.Css.Display">
+                            <td>@card.card.Name</td>
+                            <td>@card.card.Collector_Number</td>
+                            <td>@card.card.Reprint</td>
+                            <td>@card.card.HasFoil</td>
+                            <td>@card.card.HasNonFoil</td>
+                            <td>@card.card.Frame_Effect</td>
+                            <td>@card.card.EUR</td>
+                            <td>@card.card.EUR_Foil</td>
+                            <td>@card.collectionCard.NonFoil_Collected</td>
+                            <td>@card.collectionCard.Foil_Collected</td>
+                            <td><img src="@card.card.Image_Small" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+}
+
+@code {
+    [Parameter]
+    public string Set_Code { get; set; }
+
+    private void KeyboardInputHandler(KeyboardEventArgs args)
+    {
+        if (args.Key == "+")
+        {
+            if (singleShown)
+            {
+                UpdateCount(false ,1);
+            }
+        }
+        else if (args.Key == "-")
+        {
+            if (singleShown)
+            {
+                UpdateCount(false, -1);
+            }
+        }
+        if (args.Key == "/")
+        {
+            if (singleShown)
+            {
+                UpdateCount(true, 1);
+            }
+        }
+        else if (args.Key == "*")
+        {
+            if (singleShown)
+            {
+                UpdateCount(true, -1);
+            }
+        }
+        else if (args.Key == ".")
+        {
+            filterInput = "";
+        }
+    }
+
+    private void UpdateCount(bool foil, int change)
+    {
+        if(change == -1)
+        {
+            if (foil && cards[singleLocation].collectionCard.Foil_Collected == 0)
+            {
+                return;
+            }
+            else if(foil == false && cards[singleLocation].collectionCard.NonFoil_Collected == 0)
+            {
+                return;
+            }
+        }
+        if (foil)
+        {
+            cards[singleLocation].collectionCard.Foil_Collected += change;
+        }
+        else
+        {
+            cards[singleLocation].collectionCard.NonFoil_Collected += change;
+        }
+    }
+
+    #region filter stuff
+    private bool singleShown = false;
+    private int singleLocation = 0;
+
+    private string _filterInput;
+    public string filterInput
+    {
+        get
+        {
+            return _filterInput;
+        }
+
+        set
+        {
+            if (value.Contains('+') || value.Contains('-') || value.Contains('/') || value.Contains('*'))
+            {
+
+            }
+            else if (value.Contains('.'))
+            {
+                foreach (MtgCollectionTableCard card in cards)
+                {
+                    card.Css.IsVisible = "visible";
+                    card.Css.Display = "table-row";
+                }
+            }
+            else
+            {
+                _filterInput = value;
+            }
+            Filter();
+        }
+    }
+
+    private void Filter()
+    {
+        if (string.IsNullOrEmpty(filterInput))
+        {
+            return;
+        }
+        foreach (MtgCollectionTableCard card in cards)
+        {
+            if (card.card.Collector_Number.ToLower() == filterInput.ToLower())
+            {
+                card.Css.IsVisible = "visible";
+                card.Css.Display = "table-row";
+            }
+            else
+            {
+                card.Css.IsVisible = "hidden";
+                card.Css.Display = "none";
+            }
+        }
+        singleShown = cards.Count(x => x.Css.IsVisible == "visible") == 1;
+        if (singleShown)
+        {
+            singleLocation = cards.FindIndex(x => x.Css.IsVisible == "visible");
+        }
+        else
+        {
+            singleLocation = -1;
+        }
+    }
+    #endregion
+
+    private List<MtgCollectionTableCard> cards;
+    string userAuthenticated;
+    private IEnumerable<Claim> _claims = Enumerable.Empty<Claim>();
+
+    void UpdateCards()
+    {
+        var x = cards.Select(y => y.collectionCard).ToList();
+        _db.UpdateCollection(x);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await auth.GetAuthenticationStateAsync();
+
+        var user = authState.User;
+
+        _claims = user.Claims;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            userAuthenticated = $"{user.Identity.Name} is authenticated";
+        }
+        else
+        {
+            userAuthenticated = "user is not authenticated";
+        }
+
+        cards = await _db.GetPreparedSet(Set_Code, user.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+    }
+}

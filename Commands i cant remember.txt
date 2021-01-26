@@ -1,0 +1,10 @@
+﻿Drop-Database
+
+Get-DbContext
+
+Update-Database -Context ????
+
+Remove-Migration -Context
+
+Add-Migration -Context ????? -OutputDir ????? -Name ?????
+e.g. Add-Migration -context UserCollectionDbContext -outputdir "Data/UserCollection/Migrations" -Name CreateUserCollectionTable

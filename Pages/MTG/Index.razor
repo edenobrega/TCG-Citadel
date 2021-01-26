@@ -1,0 +1,71 @@
+﻿@page "/MTG"
+@using TCG_Citadel.Data.MTG.Models
+@using TCG_Citadel.Data.MTG
+@inject MtgDbContext context
+@attribute [Authorize]
+
+
+@if (sets is null)
+{
+    <h3>Loading data . . .</h3>
+}
+else
+{
+    <div class="row">
+        <div class="col-xs-12">
+            <table class="table table-bordered table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th scope="col">Icon</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Set_Code</th>
+                        <th scope="col">DateReleased</th>
+                        <th scope="col">Set_Type</th>
+                        <th scope="col">Card_Count</th>
+                        <th scope="col">Foil_Only</th>
+                        <th scope="col">NonFoil_Only</th>
+                        <th scope="col">View Collection</th>
+                        <th scope="col">Edit Collection</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var set in sets)
+                    {
+                    <tr>
+                        <td style="width:75px;"><img src="@set.Icon_Svg_Uri"/></td>
+                        <td>@set.Name</td>
+                        <td>@set.Set_Code</td>
+                        <td>@set.DateReleased.Date.ToString("d")</td>
+                        <td>@set.Set_Type</td>
+                        <td>@set.Card_Count</td>
+                        <td>@set.Foil_Only</td>
+                        <td>@set.NonFoil_Only</td>
+                        <td>no</td>
+                        <td><a href="/MTG/ViewCollection/@set.Set_Code">Edit</a></td>
+                    </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<style>
+
+</style>
+
+@code{
+    List<Set> sets;
+    protected override void OnInitialized()
+    {
+        List<string> set_types = new List<string> 
+        { 
+            "expansion",
+            "commander",
+            "core",
+            "draft_innovation"
+        };
+        sets = context.MTG_Sets.Where(x => set_types.Contains(x.Set_Type)).OrderByDescending(x => x.DateReleased).ToList();
+    }
+}
